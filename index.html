@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Jeu de mémoire</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #222;
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        h1 {
+            margin: 20px 0;
+        }
+
+        .stats {
+            margin: 10px 0;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(6, 100px);
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+            padding: 6px;
+            box-sizing: content-box;
+            background: transparent;
+        }
+
+        main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            padding: 8px 0;
+        }
+
+        .game-wrapper {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 16px 20px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+
+        .symbol-list {
+            width: 160px;
+            background: transparent; /* removed frame */
+            border-radius: 0;
+            padding: 6px 6px;
+            position: sticky;
+            top: 20px;
+            height: calc(100vh - 140px);
+            box-sizing: border-box;
+        }
+
+        .symbol-items {
+            /* container for CSS columns */
+            column-width: 40px;
+            column-gap: 10px;
+            height: calc(100vh - 180px);
+            overflow-y: auto;
+            padding-bottom: 6px;
+            overflow-x: hidden;
+        }
+
+        .symbol-item {
+            display: inline-block; /* allow column flow */
+            margin: 6px;
+            position: relative;
+            background: #333;
+            padding: 6px 8px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1.6rem;
+            line-height: 1;
+            width: 36px;
+            height: 36px;
+            text-align: center;
+            transition: background 180ms ease, transform 120ms ease;
+        }
+
+
+
+        .symbol-item.matched {
+            background: #27ae60; /* green background when matched */
+            color: white;
+        }
+
+        .control-panel {
+            width: 240px;
+            background: transparent;
+            border-radius: 10px;
+            padding: 0;
+            color: #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+            position: sticky;
+            top: 20px;
+            height: calc(100vh - 140px);
+        }
+
+        .preset-card, .scores-card {
+            background: #2b2b2b;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preset-select, .fancy-btn {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+        }
+
+        .preset-card .fancy-btn {
+            margin-top: 18px;
+            display: block;
+            width: 100%;
+        }
+
+        .fancy-btn {
+            background: linear-gradient(180deg,#3aa76d,#2aa05a);
+            color: white;
+            cursor: pointer;
+        }
+
+        .card {
+            width: 100px;
+            height: 100px;
+            background: #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            cursor: pointer;
+            border-radius: 10px;
+            user-select: none;
+        }
+
+        .card.revealed {
+            background: #fff;
+            color: #000;
+            cursor: default;
+        }
+
+        .card.matched {
+            background: #2ecc71;
+            color: white;
+            cursor: default;
+        }
+
+        /* restart button inside .preset-card uses .fancy-btn styling; remove large global margin */
+        #restart-btn {
+            margin-top: 15px;
+            padding: 8px 12px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        #leaderboard {
+            margin-top: 20px;
+            color: #ccc;
+        }
+
+        @media (max-width: 600px) {
+            .game-board {
+                grid-template-columns: repeat(4, 70px);
+                gap: 8px;
+            }
+
+            .card {
+                width: 70px;
+                height: 70px;
+                font-size: 1.5rem;
+            }
+        }
+
+        /* stack layout for medium/smaller screens */
+        @media (max-width: 980px) {
+            .game-wrapper {
+                flex-direction: column;
+                align-items: center;
+                gap: 16px;
+                padding: 12px;
+            }
+            .symbol-list, .control-panel {
+                position: relative;
+                top: 0;
+                width: min(92%, 360px);
+                height: auto;
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .control-panel { order: 3; }
+            main { order: 2; }
+            aside.symbol-list { order: 1; }
+            .game-board { margin: 0 auto; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🧠 Jeu de Mémoire</h1>
+
+    <div class="stats">
+        <p id="timer">⏰ Temps restant : 0s</p>
+        <p id="counter">🎯 Coups : 0</p>
+    </div>
+
+    <!-- preset moved to the right-side control panel -->
+
+    <div class="game-wrapper">
+        <aside class="symbol-list" id="symbol-list" aria-label="Liste des symboles">
+            <h3 style="margin:6px 0 10px; font-size:14px; color:#ddd;">Symboles</h3>
+            <div class="symbol-items" id="symbol-items"><!-- items injected here --></div>
+        </aside>
+
+        <main>
+            <div class="game-board" id="board"></div>
+        </main>
+
+        <aside class="control-panel">
+            <div class="preset-card">
+                <h3 style="margin:0 0 8px;">Règles</h3>
+                <label style="display:block; font-size:13px; color:#ddd; margin-bottom:6px;">Taille de la grille</label>
+                <select id="grid-preset" class="preset-select">
+                    <option value="4" selected>4x4</option>
+                    <option value="5">5x5</option>
+                    <option value="6">6x6</option>
+                    <option value="7">7x7</option>
+                    <option value="8">8x8</option>
+                    <option value="9">9x9</option>
+                    <option value="10">10x10</option>
+                </select>
+                <label style="display:block; margin-top:10px; font-size:13px; color:#ddd;">Chrono</label>
+                <select id="timer-mode" class="preset-select" style="margin-top:6px;">
+                    <option value="infini" selected>Infini</option>
+                    <option value="30s">30 secondes</option>
+                    <option value="1m">1 minute</option>
+                    <option value="5m">5 minutes</option>
+                    <option value="10m">10 minutes</option>
+                </select>
+                <button id="restart-btn" class="fancy-btn">Recommencer</button>
+            </div>
+            
+        </aside>
+    </div>
+
+    <!-- leaderboard moved inside control panel -->
+
+    <script>
+    const symbols = ['🍕','🎮','🐱','🌈','💀','🎵','🚀','🍀','👓','🎁','🎈','✨','🎨','⚽','💎','🧨','🎲','🛒','🍔','🍇','🍓','🧁','🌮','🥑','🥨','🍩','🥕','🍿','🍺','☕','📚','📷','🐶','🐼','🦊','🐸','🦁','🐵','🐝','🐙','🦄','🍉','🍌','🍒','🌶️','🥦','🧄','🥐','🍗','🍖','🥓','🍟','🧃','🧂','🔑','🔔','📱','💡','🏆','🎯','🧩','🔭','🛵','🚲','🚗','🏀','🎹','🎧'];
+    let cards = [], firstCard = null, lock = false;
+    let moves = 0, timer = 0, timerInterval = null, started = false;
+    let selectedSymbols = []; // symbols currently used on the board
+    let gridSize = 4; // default 4x4
+
+    const timerDisplay = document.getElementById('timer');
+    const counterDisplay = document.getElementById('counter');
+    // scoreboard removed; only keep timer display
+    const topScoresList = null;
+    const symbolListEl = document.getElementById('symbol-list');
+    const symbolItemsEl = document.getElementById('symbol-items');
+    const gridPreset = document.getElementById('grid-preset');
+    let timerModeSelect = document.getElementById('timer-mode');
+
+    let countdownRemaining = null; // seconds remaining when a countdown mode is active
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function getRandomSymbols(count) {
+            return shuffle([...symbols]).slice(0, count);
+        }
+
+        function startTimer() {
+            // start either elapsed timer or countdown depending on timerModeSelect
+            // re-read the select in case it was recreated/moved
+            timerModeSelect = document.getElementById('timer-mode');
+            const mode = timerModeSelect ? timerModeSelect.value : 'infini';
+            if (mode === 'infini' || !timerModeSelect) {
+                timer = 0;
+                timerDisplay.textContent = `⏰ Temps restant : 0s`;
+                timerInterval = setInterval(() => {
+                    timer++;
+                    timerDisplay.textContent = `⏰ Temps restant : ${timer}s`;
+                }, 1000);
+            } else {
+                // countdown modes
+                if (mode === '30s') countdownRemaining = 30;
+                else if (mode === '1m') countdownRemaining = 60;
+                else if (mode === '5m') countdownRemaining = 5 * 60;
+                else if (mode === '10m') countdownRemaining = 10 * 60;
+                timerDisplay.textContent = `⏰ Temps restant : ${formatTime(countdownRemaining)}`;
+                timerInterval = setInterval(() => {
+                    countdownRemaining--;
+                    if (countdownRemaining <= 0) {
+                        clearInterval(timerInterval);
+                        // lock game and show time over
+                        lock = true;
+                        alert('⏰ Temps écoulé !');
+                    }
+                    timerDisplay.textContent = `⏰ Temps restant : ${formatTime(countdownRemaining)}`;
+                }, 1000);
+            }
+        }
+
+        // called when the user changes the timer mode - update the display immediately
+        function updateTimerForMode() {
+            timerModeSelect = document.getElementById('timer-mode');
+            const mode = timerModeSelect ? timerModeSelect.value : 'infini';
+            if (mode === 'infini' || !timerModeSelect) {
+                // show elapsed label "Temps"
+                timerDisplay.textContent = `⏰ Temps restant : ${timer}s`;
+            } else {
+                // show Chronomètre and initial remaining time
+                let initial = 0;
+                if (mode === '30s') initial = 30;
+                else if (mode === '1m') initial = 60;
+                else if (mode === '5m') initial = 5 * 60;
+                else if (mode === '10m') initial = 10 * 60;
+                timerDisplay.textContent = `⏰ Temps restant : ${formatTime(initial)}`;
+            }
+        }
+
+        function formatTime(sec) {
+            if (sec === null || sec === undefined) return '0s';
+            if (sec < 60) return `${sec}s`;
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${m}m ${s}s`;
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function updateCounter() {
+            counterDisplay.textContent = `🎯 Coups : ${moves}`;
+        }
+
+        function createBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            const totalCards = gridSize * gridSize;
+            const pairsNeeded = Math.floor(totalCards / 2);
+            const selected = getRandomSymbols(pairsNeeded);
+            selectedSymbols = selected.slice();
+            renderSymbolList();
+            // generate the deck: pairs, and if odd totalCards add one extra filler (random from remaining symbols)
+            let deck = [...selected, ...selected];
+            if (totalCards % 2 === 1) {
+                // choose an extra symbol not already used if possible, otherwise reuse one
+                const extra = symbols.find(s => !selected.includes(s)) || selected[0];
+                deck.push(extra);
+            }
+            const doubled = shuffle(deck);
+            cards = [];
+            moves = 0;
+            updateCounter();
+            firstCard = null;
+            lock = false;
+            started = false;
+            stopTimer();
+            timer = 0;
+            timerDisplay.textContent = `⏰ Temps restant : 0s`;
+
+
+            // adjust grid columns based on gridSize (card size adjusted later)
+
+            doubled.forEach((symbol, index) => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.symbol = symbol;
+                card.dataset.index = index;
+                card.innerText = '';
+                board.appendChild(card);
+                cards.push(card);
+
+                card.addEventListener('click', () => revealCard(card));
+            });
+
+            adjustCardSize();
+        }
+
+        function updateSymbolListColumns() {
+            // compute a suitable number of columns so the symbol-list doesn't become too tall/wide
+            const list = symbolListEl;
+            const items = symbolItemsEl;
+            const count = selectedSymbols.length;
+            // prefer between 2 and 6 columns depending on count and gridSize
+            let cols = 3;
+            if (count <= 6) cols = 2;
+            else if (count <= 12) cols = 3;
+            else if (count <= 18) cols = 4;
+            else if (count <= 28) cols = 5;
+            else cols = 6;
+
+            // but if grid is very large, constrain width
+            // scale down column width and symbol size for very large grids
+            let colWidth = 40; // default
+            if (gridSize >= 9) colWidth = 32;
+            else if (gridSize === 8) colWidth = 34;
+            const gap = 8 * (cols - 1);
+            const targetWidth = cols * colWidth + gap + 20; // padding
+            list.style.width = Math.min(targetWidth, 320) + 'px';
+            // use columnCount for more predictable multi-column layout
+            items.style.columnCount = cols;
+            items.style.columnGap = '10px';
+
+            // adjust existing symbol item sizes to fit column
+            const itemSize = Math.max(26, colWidth - 6);
+            const symbolEls = items.querySelectorAll('.symbol-item');
+            symbolEls.forEach(el => {
+                el.style.width = itemSize + 'px';
+                el.style.height = itemSize + 'px';
+                el.style.fontSize = Math.max(12, Math.floor(itemSize * 0.5)) + 'px';
+            });
+        }
+
+        function adjustCardSize() {
+            const board = document.getElementById('board');
+            const cardEls = board.querySelectorAll('.card');
+            // compute a size that fits within typical screen widths: prefer 100px but shrink for large grids
+            let size = 100;
+            if (gridSize >= 8) size = 56;
+            else if (gridSize === 7) size = 64;
+            else if (gridSize === 6) size = 72;
+            else if (gridSize === 5) size = 80;
+            cardEls.forEach(c => {
+                c.style.width = size + 'px';
+                c.style.height = size + 'px';
+                c.style.fontSize = Math.max(14, Math.floor(size * 0.42)) + 'px';
+            });
+            board.style.gridTemplateColumns = `repeat(${gridSize}, ${size}px)`;
+        }
+
+        function renderSymbolList() {
+            symbolListEl.innerHTML = '';
+            // create items in same order as selectedSymbols
+            selectedSymbols.forEach(sym => {
+                const item = document.createElement('div');
+                item.classList.add('symbol-item');
+                item.dataset.symbol = sym;
+                item.innerText = sym;
+
+                symbolItemsEl.appendChild(item);
+            });
+            updateSymbolListColumns();
+        }
+
+        function revealCard(card) {
+            if (lock || card.classList.contains('revealed') || card.classList.contains('matched')) return;
+
+            if (!started) {
+                started = true;
+                startTimer();
+            }
+
+            card.classList.add('revealed');
+            card.innerText = card.dataset.symbol;
+
+            if (!firstCard) {
+                firstCard = card;
+            } else {
+                moves++;
+                updateCounter();
+
+                if (firstCard.dataset.symbol === card.dataset.symbol && firstCard !== card) {
+                    firstCard.classList.add('matched');
+                    card.classList.add('matched');
+                    markSymbolMatched(card.dataset.symbol);
+                    firstCard = null;
+                } else {
+                    lock = true;
+                    setTimeout(() => {
+                        firstCard.classList.remove('revealed');
+                        card.classList.remove('revealed');
+                        firstCard.innerText = '';
+                        card.innerText = '';
+                        firstCard = null;
+                        lock = false;
+                    }, 700);
+                }
+            }
+
+            const totalCards = cards.length;
+            const matchable = Math.floor(totalCards / 2) * 2; // number of cards that can be paired
+                    if (document.querySelectorAll('.card.matched').length === matchable) {
+                stopTimer();
+                setTimeout(() => {
+                    alert(`🎉 Bravo ! ${moves} coups en ${timer} secondes !`);
+                    showTopScores();
+                }, 300);
+            }
+        }
+
+        function markSymbolMatched(sym) {
+            // find the symbol-item and add matched class
+            const el = symbolItemsEl.querySelector(`.symbol-item[data-symbol="${sym}"]`);
+            if (el) el.classList.add('matched');
+        }
+
+        // leaderboard removed
+        function showTopScores() { /* noop */ }
+
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            createBoard();
+            showTopScores();
+        });
+
+        // update timer display when mode changes
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'timer-mode') {
+                updateTimerForMode();
+            }
+        });
+
+        gridPreset.addEventListener('change', (e) => {
+            const val = parseInt(e.target.value, 10) || 4;
+            gridSize = val;
+            createBoard();
+        });
+
+        // Init
+        updateTimerForMode();
+        createBoard();
+        showTopScores();
+    </script>
+</body>
+
+</html>
